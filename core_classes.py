@@ -75,18 +75,14 @@ class Snake():
 	def change_course(self,course):
 		'''Изменение направления движения змейки'''
 		course = course.lower()
-		previous_part = self.body[1]
-		head = self.body[0]
-		#Поиск направления куда нельзя повернуть
-		#Чтоб не проходить сквозь себя
-		if previous_part.x < head.x:
-			wrong_course = 'left'
-		elif previous_part.x > head.x:
-			wrong_course = 'right'
-		elif previous_part.y < head.y:
-			wrong_course = 'up'
-		elif previous_part.y > head.y:
+		if self.course == 'up':
 			wrong_course = 'down'
+		elif self.course == 'down':
+			wrong_course = 'up'
+		elif self.course == 'right':
+			wrong_course = 'left'
+		elif self.course == 'left':
+			wrong_course = 'right'
 		if course != wrong_course:
 			self.course = course
 		else:
@@ -114,16 +110,16 @@ class Snake_part():
 		self.head = head
 		self.create_rectangle(x,y)
 
-	def create_rectangle(self,x,y):
-		'''Общий кусок кода вынесеный в функцию'''
+	def create_rectangle(self,x,y,head_color = 'orange',part_color = '#8b6508'):
+		'''Отрисовка куска'''
 		self.x = x
 		self.y = y
 		x1 = x+self.size
 		y1 = y+self.size
 		if self.head:
-			color = 'orange'
+			color = head_color
 		else:
-			color = '#8b6508'
+			color = part_color
 		self.id = self.canv.create_rectangle(x,y,x1,y1,fill = color)
 
 	def move(self,x,y):
