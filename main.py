@@ -8,16 +8,17 @@ ROOT.title('Snake')
 
 class Main_window(Frame):
 	"""Main class for my game"""
-	def __init__(self,parent,width = 800,height = 600,**options):
+	def __init__(self,parent,canv_width = 800,canv_height = 600,**options):
 		Frame.__init__(self,parent,**options)
 		self.top_bar = Frame()
 		self.top_bar.pack(side = TOP,fill = X)
 		Button(self.top_bar,text = 'Start',command = self.start).pack(side = LEFT)
 		Button(self.top_bar,text = 'Pause',command = self.pause).pack(side = LEFT)
-		#Button(self.top_bar,text = 'Quit',command = self.quit).pack(side = LEFT)
-		self.canv_width = width
-		self.canv_height = height
-		self.canv = Canvas(width = width,height = height,bg = 'white')
+		self.score_lbl = Label(self.top_bar,text = 'Length: 0')
+		self.score_lbl.pack(side = RIGHT)
+		self.canv_width = canv_width
+		self.canv_height = canv_height
+		self.canv = Canvas(width = canv_width,height = canv_height,bg = 'white')
 		self.canv.pack(side = TOP)
 		ROOT.bind('<Up>',lambda event:self.onChangeCourse('up'))
 		ROOT.bind('<Down>',lambda event:self.onChangeCourse('down'))
@@ -30,9 +31,15 @@ class Main_window(Frame):
 		self.food = False #Еда тоже отсутствует на экране
 		self.pause_status = False
 
+	def changeScore(self,score):
+		text = self.score_lbl.cget('text')
+		text = text.split(' ')[0] + ' ' + str(score)
+		print(text)
+		self.score_lbl.config(text = text)
+
 	def onChangeCourse(self,course):
 		#Не менять курс, когда нету змеи или стоит пауза
-		if not self.snake or self.pause_status:
+		if not self.snake or self.pause_status or not self.run:
 			return None
 		else:
 			course = course.lower()
@@ -59,11 +66,13 @@ class Main_window(Frame):
 			self.snake.delete_snake()
 			self.food.delete_part()
 		self.snake = Snake(self.canv,self.canv_width,
-						self.canv_height,size = 20,speed = 7,length = 2)
+						self.canv_height,size = 20,speed = 7,length = 1)
+		self.changeScore(self.snake.length)
 		self.create_food()
 		self.canv.focus_set()
 		self.run = True
 		self.pause_status = False
+		self.game_over_var = False
 		self.play()
 
 	def play(self):
@@ -74,16 +83,20 @@ class Main_window(Frame):
 			#Проверка сьела ли змейку еду
 			if (head.x,head.y) == (self.food.x,self.food.y):
 				self.snake.add_part()
+				self.changeScore(self.snake.length)
 				self.create_food()
+				#В случае когда змейка занимает все поле
+				if self.game_over_var:
+					self.game_over()
+					return None
 			#Проверка не сьела ли змейка саму себя
-			game_over = False
+			self.game_over_var = False
 			for part in self.snake.body[1:]:
-				if (head.x,head.y) == (part.x,part.y):
-					game_over = True
-					break
-			if game_over:
-				self.game_over()
-				return None
+				#Змейка не может себя сьесть при длинне до 4 включительно
+				if (head.x,head.y) == (part.x,part.y) and self.snake.length > 4:
+					self.game_over_var = True
+					self.game_over()
+					return None
 		if not self.food:
 			self.create_food()
 		after_time = int(1000/self.snake.speed)
@@ -94,24 +107,29 @@ class Main_window(Frame):
 		self.pause_status = not self.pause_status
 
 	def stop(self):
-		"""Завершение игры"""
+		"""Остановка игры"""
 		print('Stopped!')
 		self.run = False
 		self.after_cancel(self.after_id)
 
 	def game_over(self,game_over_color = 'red'):
+		self.stop()
 		self.canv.config(bg = game_over_color)
 		self.game_over_win = Toplevel()
 		self.game_over_win.title('Game over')
+
 		frm = Frame(self.game_over_win,width = 300,height = 200)
 		frm.pack(side = TOP,expand = YES,fill = BOTH)
+
 		game_over_lbl = Label(frm,text = "GAME OVER")
 		game_over_lbl.config(font=('times',20,'bold'))
 		game_over_lbl.pack(side = TOP,expand = YES, fill = BOTH)
-		lbl_txt = 'Your length ' + str(self.snake.length)
-		score_lbl = Label(self.game_over_win,text = lbl_txt)
+
+		score_txt = 'Your length ' + str(self.snake.length)
+		score_lbl = Label(self.game_over_win,text = score_txt)
 		score_lbl.config(font=('times',13,'bold'))
 		score_lbl.pack(side = TOP,expand = YES, fill = BOTH)
+
 		ok_btn = Button(self.game_over_win,text = 'Ok', command = self.game_over_win.destroy)
 		ok_btn.pack(side = TOP,fill = BOTH)
 		#Сделать окно модальным
@@ -125,9 +143,16 @@ class Main_window(Frame):
 		#Удалить старую еду
 		if self.food:self.food.delete_part()
 		while True:
-			#Генерируется случайны координаты кратные размеру
-			random_x = random.choice(range(int(self.canv_width/self.snake.size)))
-			random_y = random.choice(range(int(self.canv_height/self.snake.size)))
+			#Ширина и высота кратные размеру
+			width = int(self.canv_width/self.snake.size)
+			height = int(self.canv_height/self.snake.size)
+			#Если змейка занимает все доступное поле
+			if  self.snake.length == (width*height):
+				self.game_over_var = True
+				return None
+			#Генерируется случайны координаты в пределах окна
+			random_x = random.choice(range(width))
+			random_y = random.choice(range(height))
 			random_x *= self.snake.size
 			random_y *= self.snake.size
 			#Проверка занято ли это место змейкой
@@ -138,7 +163,6 @@ class Main_window(Frame):
 					break
 			if not engage:break
 		self.food = Snake_food(self.canv,random_x,random_y,self.snake.size)
-
 
 
 if __name__ == '__main__':
