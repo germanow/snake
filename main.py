@@ -32,12 +32,14 @@ class Main_window(Frame):
 		self.pause_status = False
 
 	def changeScore(self,score):
+		'''Изменяет счет'''
 		text = self.score_lbl.cget('text')
 		text = text.split(' ')[0] + ' ' + str(score)
 		print(text)
 		self.score_lbl.config(text = text)
 
 	def onChangeCourse(self,course):
+		'''Изменение движения змейки'''
 		#Не менять курс, когда нету змеи или стоит пауза
 		if not self.snake or self.pause_status or not self.run:
 			return None
