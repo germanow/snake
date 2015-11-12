@@ -5,7 +5,7 @@ from core_classes import Snake,Snake_part,Snake_food
 ROOT = Tk()
 ROOT.title('Snake')
 
-
+#Test git for windows
 class Main_window(Frame):
 	"""Main class for my game"""
 	def __init__(self,parent,canv_width = 800,canv_height = 600,**options):
