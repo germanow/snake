@@ -14,20 +14,39 @@ class Snake():
 		else:
 			print('Wrong course!\nUse defaults!')
 			self.course = 'right'
-		#Поумолчанию змейка отрисовывается с центра
+		self.build_body(head_x,head_y)
+			
+	def build_body(self,head_x,head_y):
+		"""Построение тела змейки"""
+	#Поумолчанию змейка отрисовывается с центра
 		if not head_x and not head_y:
-			head_x = canv_width/2
-			head_y = canv_height/2
+			head_x = self.canv_width/2
+			head_y = self.canv_height/2
 		x = head_x
 		y = head_y
 		#Тело змейки
 		self.body = []
-		for i in range(length):
+		#Расчет приращения координат
+		#Для построения змейки в направлении self.course
+		if self.course == 'right':
+			offset_x = -self.size
+			offset_y = 0
+		elif self.course == 'left':
+			offset_x = self.size
+			offset_y = 0
+		elif self.course == 'up':
+			offset_x = 0
+			offset_y = self.size
+		elif self.course == 'down':
+			offset_x = 0
+			offset_y = -self.size
+		for i in range(self.length):
 			head = True if (i == 0) else False
-			part = Snake_part(canvas,x,y,size,head)
+			part = Snake_part(self.canv,x,y,self.size,head)
 			self.body.append(part)
-			x -= size
-
+			x += offset_x
+			y += offset_y
+		
 	def move(self):
 		'''Движение всей змейки на шаг size в направление course'''
 		#Выбор приращения координаты для головы
@@ -71,7 +90,6 @@ class Snake():
 			#Оставить его на месте
 			self.body[i].move(new_x,new_y)
 
-
 	def change_course(self,course):
 		'''Изменение направления движения змейки'''
 		course = course.lower()
@@ -94,7 +112,6 @@ class Snake():
 		new_part = Snake_part(self.canv,last_part.x,last_part.y,self.size)
 		self.body.append(new_part)
 		self.length += 1
-
 
 	def delete_snake(self):
 		'''Убирает с полотна змейку'''
@@ -132,6 +149,7 @@ class Snake_part():
 		'''Убирает с полотна кусок змейки'''
 		self.canv.delete(self.id)
 
+		
 class Snake_food():
 	'''Еда для змейки'''
 	def __init__(self,canvas,x,y,size,color = '#606060'):
