@@ -1,6 +1,6 @@
 from tkinter import *
 import time,random
-from core_classes import Snake,Snake_part,Snake_food
+from core_classes import Snake,Snake_food
 
 ROOT = Tk()
 ROOT.title('Snake')
@@ -30,6 +30,7 @@ class Main_window(Frame):
 		self.run = False #Статус игры
 		self.snake = False #Змейка отсутствует на экране
 		self.food = False #Еда тоже отсутствует на экране
+		self.in_ready = False #Переменная выполения метода self.ready
 		self.pause_status = False
 	
 	def control_info(self):
@@ -73,6 +74,9 @@ class Main_window(Frame):
 
 	def start(self):
 		'''Старт игры сначала'''
+		#Предотвращение повторного запуска
+		#Во время выполнения self.ready
+		if self.in_ready:return None
 		#Убрать стартовую информацию в начале игры
 		if self.start_control_info:
 			self.canv.delete(self.start_control_info)
@@ -94,6 +98,8 @@ class Main_window(Frame):
 
 	def ready(self):
 		"""Даёт время на подготовку"""
+		#Переменная выполнения этой функции
+		self.in_ready = True
 		x = self.canv_width/2
 		y = self.canv_height/2
 		text = self.canv.create_text(x,y,text = "Ready?",
@@ -108,6 +114,7 @@ class Main_window(Frame):
 			time.sleep(0.1)
 			self.update()
 		self.canv.delete(text)
+		self.in_ready = False
 		
 	def play(self):
 		"""Рекурсивная функция выполнения игры"""
