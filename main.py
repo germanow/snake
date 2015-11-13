@@ -156,10 +156,10 @@ class Main_window(Frame):
 	def game_over(self,game_over_color = 'red'):
 		self.stop()
 		self.canv.config(bg = game_over_color)
-		self.game_over_win = Toplevel()
-		self.game_over_win.title('Game over')
+		game_over_win = Toplevel()
+		game_over_win.title('Game over')
 
-		frm = Frame(self.game_over_win,width = 300,height = 200)
+		frm = Frame(game_over_win,width = 300,height = 200)
 		frm.pack(side = TOP,expand = YES,fill = BOTH)
 
 		game_over_lbl = Label(frm,text = "GAME OVER")
@@ -167,16 +167,16 @@ class Main_window(Frame):
 		game_over_lbl.pack(side = TOP,expand = YES, fill = BOTH)
 
 		score_txt = 'Your length ' + str(self.snake.length)
-		score_lbl = Label(self.game_over_win,text = score_txt)
+		score_lbl = Label(game_over_win,text = score_txt)
 		score_lbl.config(font=('times',13,'bold'))
 		score_lbl.pack(side = TOP,expand = YES, fill = BOTH)
 
-		ok_btn = Button(self.game_over_win,text = 'Ok', command = self.game_over_win.destroy)
+		ok_btn = Button(game_over_win,text = 'Ok', command = game_over_win.destroy)
 		ok_btn.pack(side = TOP,fill = BOTH)
 		#Сделать окно модальным
-		self.game_over_win.focus_set() 
-		self.game_over_win.grab_set() #Запрещает доступ к другим окнам
-		self.game_over_win.wait_window() #Ожидает закрытия окна
+		game_over_win.focus_set() 
+		game_over_win.grab_set() #Запрещает доступ к другим окнам
+		game_over_win.wait_window() #Ожидает закрытия окна
 		self.canv.config(bg = 'white')
 
 	def create_food(self):
