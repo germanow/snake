@@ -93,14 +93,18 @@ class Snake():
 	def change_course(self,course):
 		'''Изменение направления движения змейки'''
 		course = course.lower()
-		if self.course == 'up':
-			wrong_course = 'down'
-		elif self.course == 'down':
-			wrong_course = 'up'
-		elif self.course == 'right':
+		previous_part = self.body[1]
+		head = self.body[0]
+		#Поиск направления куда нельзя повернуть
+		#Чтоб не проходить сквозь себя
+		if previous_part.x < head.x:
 			wrong_course = 'left'
-		elif self.course == 'left':
+		elif previous_part.x > head.x:
 			wrong_course = 'right'
+		elif previous_part.y < head.y:
+			wrong_course = 'up'
+		elif previous_part.y > head.y:
+			wrong_course = 'down'
 		if course != wrong_course:
 			self.course = course
 		else:

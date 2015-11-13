@@ -12,27 +12,79 @@ class Main_window(Frame):
 		Frame.__init__(self,parent,**options)
 		self.top_bar = Frame()
 		self.top_bar.pack(side = TOP,fill = X)
-		Button(self.top_bar,text = 'Start',command = self.start).pack(side = LEFT)
-		Button(self.top_bar,text = 'Pause',command = self.pause).pack(side = LEFT)
-		self.score_lbl = Label(self.top_bar,text = 'Length: 0')
+		Button(self.top_bar,text = 'New game',
+					command = self.new_game_window).pack(side = LEFT)
+		Button(self.top_bar,text = 'Pause',
+					command = self.pause).pack(side = LEFT)
+		self.score_lbl = Label(self.top_bar,text = 'Score: 0')
 		self.score_lbl.pack(side = RIGHT)
 		self.canv_width = canv_width
 		self.canv_height = canv_height
 		self.canv = Canvas(width = canv_width,height = canv_height,bg = 'white')
 		self.canv.pack(side = TOP)
+		#Установка клавиш управления
 		ROOT.bind('<Up>',lambda event:self.on_change_course('up'))
 		ROOT.bind('<Down>',lambda event:self.on_change_course('down'))
 		ROOT.bind('<Left>',lambda event:self.on_change_course('left'))
 		ROOT.bind('<Right>',lambda event:self.on_change_course('right'))
 		ROOT.bind('<KeyPress>',self.on_key_press)
+		#Вывод справочной информации
 		self.control_info()
 		#Переменные поумолчанию
+		self.score = 0
 		self.run = False #Статус игры
 		self.snake = False #Змейка отсутствует на экране
 		self.food = False #Еда тоже отсутствует на экране
 		self.in_ready = False #Переменная выполения метода self.ready
 		self.pause_status = False
 	
+	def new_game_window(self):
+		"""Окно для стартовых настроек"""
+		def start():
+			start_win.destroy()
+			self.start(speed.get())
+		#Предотвращение повторного запуска
+		#Во время выполнения self.ready
+		if self.in_ready:return None
+		#Убрать стартовую информацию в начале игры
+		if self.start_control_info:
+			self.canv.delete(self.start_control_info)
+		#Проверка есть ли уже змейка на поле
+		if self.snake:
+			self.stop()
+			self.snake.delete_snake()
+			self.food.delete_part()	
+		self.change_score(set_value = 0)
+		#ПОстроение интерфейса
+		start_win = Toplevel()
+		start_win.title('Start settings')
+		#Ассоциированая переменная для выбора скорости
+		speed = IntVar()
+		frm = Frame(start_win,width = 300,height = 200)
+		frm.pack(side = TOP,expand = YES,fill = BOTH)
+		start_win_lbl = Label(frm,text = "Выберите стартовые настройки")
+		start_win_lbl.config(font=('times',15,'bold'))
+		start_win_lbl.pack(side = TOP,expand = YES, fill = BOTH)
+		speed_lbl = Label(frm,text = 'Сложность')
+		speed_lbl.config(font=('times',12))
+		speed_lbl.pack(side = TOP,expand = YES, fill = BOTH)
+		radio_bar = Frame(frm)
+		radio_bar.pack(side = TOP,expand = YES, fill = X)
+		Radiobutton(radio_bar,text = 'Easy',
+								variable = speed,value = 5).pack(side = LEFT)
+		Radiobutton(radio_bar,text = 'Normal',
+								variable = speed,value = 10).pack(side = LEFT)
+		Radiobutton(radio_bar,text = 'Hard',
+								variable = speed,value = 15).pack(side = LEFT)
+		Radiobutton(radio_bar,text = 'Extreme',
+								variable = speed,value = 20).pack(side = LEFT)
+		ok_btn = Button(frm,text = 'Start', command = start)
+		ok_btn.pack(side = TOP,fill = X)
+		#Сделать окно модальным
+		start_win.focus_set() 
+		start_win.grab_set() #Запрещает доступ к другим окнам
+		start_win.wait_window() #Ожидает закрытия окна
+		
 	def control_info(self):
 		"""Вывод информации о управлении"""
 		x = self.canv_width/2
@@ -42,10 +94,14 @@ class Main_window(Frame):
 		self.start_control_info = self.canv.create_text(x,y,text = text,
 															fill = '#778899', font=('normal','20'))
 	
-	def change_score(self,score):
+	def change_score(self,set_value = None):
 		'''Изменяет счет'''
+		if set_value or set_value == 0:
+			self.score = set_value
+		else:
+			self.score += self.snake.speed
 		text = self.score_lbl.cget('text')
-		text = text.split(' ')[0] + ' ' + str(score)
+		text = text.split(' ')[0] + ' ' + str(self.score)
 		print(text)
 		self.score_lbl.config(text = text)
 
@@ -72,22 +128,10 @@ class Main_window(Frame):
 		if key == 'p' or 'з':
 			self.pause()
 
-	def start(self):
+	def start(self,speed):
 		'''Старт игры сначала'''
-		#Предотвращение повторного запуска
-		#Во время выполнения self.ready
-		if self.in_ready:return None
-		#Убрать стартовую информацию в начале игры
-		if self.start_control_info:
-			self.canv.delete(self.start_control_info)
-		#Проверка есть ли уже змейка на поле
-		if self.snake:
-			self.stop()
-			self.snake.delete_snake()
-			self.food.delete_part()		
 		self.snake = Snake(self.canv,self.canv_width,
-						self.canv_height,size = 20,speed = 7,length = 2,course = 'right')
-		self.change_score(self.snake.length)
+						self.canv_height,size = 20,speed = speed,length = 2,course = 'right')
 		self.ready()
 		self.create_food()
 		self.canv.focus_set()
@@ -124,7 +168,7 @@ class Main_window(Frame):
 			#Проверка сьела ли змейку еду
 			if (head.x,head.y) == (self.food.x,self.food.y):
 				self.snake.add_part()
-				self.change_score(self.snake.length)
+				self.change_score()
 				self.create_food()
 				#В случае когда змейка занимает все поле
 				if self.game_over_var:
@@ -178,7 +222,7 @@ class Main_window(Frame):
 		game_over_win.grab_set() #Запрещает доступ к другим окнам
 		game_over_win.wait_window() #Ожидает закрытия окна
 		self.canv.config(bg = 'white')
-
+	
 	def create_food(self):
 		'''Генерация еды в случайном месте'''
 		#Удалить старую еду
