@@ -1,5 +1,5 @@
 from tkinter import *
-import time,random
+import time,random,pickle
 from core_classes import Snake,Snake_food
 
 ROOT = Tk()
@@ -11,12 +11,14 @@ class Main_window(Frame):
 	def __init__(self,parent,canv_width = 800,canv_height = 600,**options):
 		Frame.__init__(self,parent,**options)
 		self.top_bar = Frame()
-		self.top_bar.pack(side = TOP,fill = X)
+		self.top_bar.pack(side = TOP,padx = 1,pady = 1,fill = X)
 		Button(self.top_bar,text = 'New game',
-					command = self.new_game_window).pack(side = LEFT)
+					command = self.new_game_window).pack(side = LEFT,padx = 2)
 		Button(self.top_bar,text = 'Pause',
-					command = self.pause).pack(side = LEFT)
-		self.score_lbl = Label(self.top_bar,text = 'Score: 0')
+					command = self.pause).pack(side = LEFT,padx = 2)
+		Button(self.top_bar,text = 'Scores',
+					command = self.scores_window).pack(side = LEFT,padx = 2)
+		self.score_lbl = Label(self.top_bar,text = 'Score: 0',font = ('bold'))
 		self.score_lbl.pack(side = RIGHT)
 		self.canv_width = canv_width
 		self.canv_height = canv_height
@@ -31,18 +33,20 @@ class Main_window(Frame):
 		#Вывод справочной информации
 		self.control_info()
 		#Переменные поумолчанию
-		self.score = 0
+		self.current_score = 0
 		self.run = False #Статус игры
 		self.snake = False #Змейка отсутствует на экране
 		self.food = False #Еда тоже отсутствует на экране
 		self.in_ready = False #Переменная выполения метода self.ready
 		self.pause_status = False
+		self.load_scores() #Загрузка статистики в self.scores
 	
 	def new_game_window(self):
 		"""Окно для стартовых настроек"""
 		def start():
 			start_win.destroy()
 			self.start(speed.get())
+		self.canv.config(bg = 'white')
 		#Предотвращение повторного запуска
 		#Во время выполнения self.ready
 		if self.in_ready:return None
@@ -60,7 +64,7 @@ class Main_window(Frame):
 		start_win.title('Start settings')
 		#Ассоциированая переменная для выбора скорости
 		speed = IntVar()
-		frm = Frame(start_win,width = 300,height = 200)
+		frm = Frame(start_win)
 		frm.pack(side = TOP,expand = YES,fill = BOTH)
 		start_win_lbl = Label(frm,text = "Выберите стартовые настройки")
 		start_win_lbl.config(font=('times',15,'bold'))
@@ -80,10 +84,35 @@ class Main_window(Frame):
 								variable = speed,value = 20).pack(side = LEFT)
 		ok_btn = Button(frm,text = 'Start', command = start)
 		ok_btn.pack(side = TOP,fill = X)
-		#Сделать окно модальным
-		start_win.focus_set() 
-		start_win.grab_set() #Запрещает доступ к другим окнам
-		start_win.wait_window() #Ожидает закрытия окна
+		self.wait_for_window(start_win)
+		
+	def scores_window(self):
+		"""Окно статистики"""
+		#ПОстроение интерфейса
+		scores_win = Toplevel()
+		scores_win.title('Scores')
+		frm = Frame(scores_win)
+		frm.pack(side = TOP,expand = YES,fill = BOTH)
+		scores_win_lbl = Label(frm,text = "TOP 10")
+		scores_win_lbl.config(font=('times',16,'bold'))
+		scores_win_lbl.grid(columnspan = 3)
+		#Сортировка по очкам
+		self.scores.sort(reverse = True,key = lambda tuple:tuple[1])
+		for (position,(name,score)) in enumerate(self.scores):
+			position += 1
+			position_lbl = Label(frm,text = str(position)+'.',font = ('times','13'))
+			position_lbl.grid(row = position, column = 0)
+			name_lbl = Label(frm,text = name,font = ('times','13'))
+			name_lbl.grid(row = position, column = 1)
+			score_lbl = Label(frm,text = str(score),font = ('times','13'))
+			score_lbl.grid(row = position, column = 2)
+		self.wait_for_window(scores_win)
+	
+	def wait_for_window(self,win):
+		"""Сделать окно модальным"""
+		win.focus_set() 
+		win.grab_set() #Запрещает доступ к другим окнам
+		win.wait_window() #Ожидает закрытия окна
 		
 	def control_info(self):
 		"""Вывод информации о управлении"""
@@ -95,18 +124,18 @@ class Main_window(Frame):
 															fill = '#778899', font=('normal','20'))
 	
 	def change_score(self,set_value = None):
-		'''Изменяет счет'''
+		"""Изменяет счет и отрисовывает"""
 		if set_value or set_value == 0:
-			self.score = set_value
+			self.current_score = set_value
 		else:
-			self.score += self.snake.speed
+			self.current_score += self.snake.speed
 		text = self.score_lbl.cget('text')
-		text = text.split(' ')[0] + ' ' + str(self.score)
+		text = text.split(' ')[0] + ' ' + str(self.current_score)
 		print(text)
 		self.score_lbl.config(text = text)
 
 	def on_change_course(self,course):
-		'''Изменение движения змейки'''
+		"""Изменение движения змейки"""
 		#Не менять курс, когда нету змеи или стоит пауза
 		if not self.snake or self.pause_status or not self.run:
 			return None
@@ -129,9 +158,9 @@ class Main_window(Frame):
 			self.pause()
 
 	def start(self,speed):
-		'''Старт игры сначала'''
+		"""Старт игры сначала"""
 		self.snake = Snake(self.canv,self.canv_width,
-						self.canv_height,size = 20,speed = speed,length = 2,course = 'right')
+						self.canv_height,size = 20,speed = speed,length = 10,course = 'right')
 		self.ready()
 		self.create_food()
 		self.canv.focus_set()
@@ -142,7 +171,7 @@ class Main_window(Frame):
 
 	def ready(self):
 		"""Даёт время на подготовку"""
-		#Переменная выполнения этой функции
+		#Флаг выполнения функции
 		self.in_ready = True
 		x = self.canv_width/2
 		y = self.canv_height/2
@@ -154,7 +183,7 @@ class Main_window(Frame):
 		self.canv.delete(text)
 		text = self.canv.create_text(x,y,text = "Go!",
 																fill = 'black', font=('bold','45'))
-		for i in range(1,8):
+		for i in range(1,7):
 			time.sleep(0.1)
 			self.update()
 		self.canv.delete(text)
@@ -197,34 +226,57 @@ class Main_window(Frame):
 		self.run = False
 		self.after_cancel(self.after_id)
 
-	def game_over(self,game_over_color = 'red'):
+	def game_over(self,game_over_color = '#FA8072'):
 		self.stop()
 		self.canv.config(bg = game_over_color)
 		game_over_win = Toplevel()
 		game_over_win.title('Game over')
-
-		frm = Frame(game_over_win,width = 300,height = 200)
+		frm = Frame(game_over_win)
 		frm.pack(side = TOP,expand = YES,fill = BOTH)
-
-		game_over_lbl = Label(frm,text = "GAME OVER")
-		game_over_lbl.config(font=('times',20,'bold'))
-		game_over_lbl.pack(side = TOP,expand = YES, fill = BOTH)
-
-		score_txt = 'Your length ' + str(self.snake.length)
+		#Проверяем вошли мы в топ или нет
+		congratulate = False
+		for (name,score) in self.scores:
+			if self.current_score > score:
+				congratulate = True
+				position = self.scores.index((name,score))
+				break
+		if congratulate:
+			game_over_lbl = Label(frm,text = "CONGRATULATE!")
+			game_over_lbl.config(font=('times',20,'bold'))
+			game_over_lbl.pack(side = TOP,padx = 3,expand = YES, fill = BOTH)
+			position_lbl = Label(frm,text = "Position in TOP - " + str(position+1))
+			position_lbl.config(font=('times',14,'bold'))
+			position_lbl.pack(side = TOP,padx = 3,expand = YES, fill = BOTH)			
+		else:
+			game_over_lbl = Label(frm,text = "GAME OVER")
+			game_over_lbl.config(font=('times',20,'bold'))
+			game_over_lbl.pack(side = TOP,padx = 3,expand = YES, fill = BOTH)
+		score_txt = 'Your score: ' + str(self.current_score)
 		score_lbl = Label(game_over_win,text = score_txt)
 		score_lbl.config(font=('times',13,'bold'))
 		score_lbl.pack(side = TOP,expand = YES, fill = BOTH)
-
+		#Ввод имени игрока
+		if congratulate:
+			enter_frm = Frame(game_over_win)
+			enter_frm.pack(side = TOP,expand = YES, fill = BOTH)
+			Label(enter_frm,text = "Name:").pack(side = LEFT)
+			entr_var = StringVar()
+			entr = Entry(enter_frm,textvariable = entr_var)
+			entr.pack(side = LEFT,padx = 2,expand = YES,fill = X)
+			#Имя поумолчанию
+			entr.insert(0,'NoName')
 		ok_btn = Button(game_over_win,text = 'Ok', command = game_over_win.destroy)
 		ok_btn.pack(side = TOP,fill = BOTH)
-		#Сделать окно модальным
-		game_over_win.focus_set() 
-		game_over_win.grab_set() #Запрещает доступ к другим окнам
-		game_over_win.wait_window() #Ожидает закрытия окна
-		self.canv.config(bg = 'white')
+		self.wait_for_window(game_over_win)
+		#Изменяем переменную статистики
+		name = entr_var.get()
+		self.scores.insert(position,(name,self.current_score))
+		self.scores = self.scores[:-1]
+		self.dump_scores() #Сохраняем в файл
+
 	
 	def create_food(self):
-		'''Генерация еды в случайном месте'''
+		"""Генерация еды в случайном месте"""
 		#Удалить старую еду
 		if self.food:self.food.delete_part()
 		while True:
@@ -248,7 +300,27 @@ class Main_window(Frame):
 					break
 			if not engage:break
 		self.food = Snake_food(self.canv,random_x,random_y,self.snake.size)
-
+		
+	def load_scores(self):
+		"""Загрузка статистики из файла"""
+		try:
+			file_scores = open('scores.pkl','rb')
+			scores = pickle.load(file_scores)
+		except FileNotFoundError:
+			file_scores = open('scores.pkl','wb')
+			#Значения поумолчанию
+			scores = [('NoName',0) for i in range(10)]
+			pickle.dump(scores,file_scores)
+		finally:
+			file_scores.close()
+		self.scores = scores
+		
+	def dump_scores(self):
+		"""Сохранения счета в файл"""
+		with open('scores.pkl','wb') as file_scores:
+			pickle.dump(self.scores,file_scores)
+		
 
 if __name__ == '__main__':
 	Main_window(ROOT).mainloop()
+	
