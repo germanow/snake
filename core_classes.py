@@ -118,10 +118,10 @@ class Snake():
 		self.body.append(new_part)
 		self.length += 1
 
-	def delete_snake(self):
+	def delete(self):
 		'''Убирает с полотна змейку'''
 		for part in self.body:
-			part.delete_part()
+			part.delete()
 
 
 class Snake_part():
@@ -150,7 +150,7 @@ class Snake_part():
 		self.canv.delete(self.id)
 		self.create_rectangle(x, y)
 
-	def delete_part(self):
+	def delete(self):
 		'''Убирает с полотна кусок змейки'''
 		self.canv.delete(self.id)
 
@@ -166,6 +166,6 @@ class Snake_food():
 		y1 = y + size
 		self.id = self.canv.create_oval(x, y, x1, y1, fill=color)
 
-	def delete_part(self):
+	def delete(self):
 		'''Убирает с полотна кусок змейки'''
 		self.canv.delete(self.id)

@@ -9,6 +9,111 @@ root = Tk()
 root.title('Snake')
 
 
+class Snake_controller():
+	def __init__(self, canvas, canv_width, canv_height, 
+							size=20, start_length=2, start_course='right'):
+		self.canv = canvas
+		self.canv_width = canv_width
+		self.canv_height = canv_height
+		self.size = size
+		self.start_length = start_length
+		self.start_course = start_course
+		self.score = StringVar(value='0')
+		self.run = False #Статус игры
+		self.snake = False #Змейка отсутствует на экране
+		self.food = False #Еда тоже отсутствует на экране
+		self.pause_status = False
+		self.game_over_var = BooleanVar(value=False)
+	
+	def start(self, speed):
+		'''Старт игры сначала'''
+		self.snake = Snake(self.canv, self.canv_width, self.canv_height, 
+											size=self.size, speed=speed, length=self.start_length, 
+											course=self.start_course)
+		self.score.set(0)
+		self.run = True
+		self.pause_status = False
+		self.game_over_var.set(False)
+		self.create_food()
+		self.play()
+	
+	def play(self):
+		'''Рекурсивная функция выполнения игры'''
+		if not self.pause_status:
+			self.snake.move()
+			head = self.snake.body[0]
+			#Проверка сьела ли змейку еду
+			if (head.x, head.y) == (self.food.x, self.food.y):
+				self.snake.add_part()
+				self.add_score()
+				self.create_food()
+				#В случае когда змейка занимает все поле
+				if self.game_over_var.get():
+					return None
+			#Проверка не сьела ли змейка саму себя
+			#self.game_over_var.set(False)
+			for part in self.snake.body[1:]:
+				#Змейка не может себя сьесть при длинне до 4 включительно
+				if ((head.x, head.y) == (part.x, part.y)) and (self.snake.length > 4):
+					self.game_over_var.set(True)
+					return None
+		if not self.food:
+			self.create_food()
+		after_time = int(1000/self.snake.speed)
+		self.after_id = self.canv.after(after_time, self.play)
+
+	def add_score(self):
+		new_score = int(self.score.get()) + self.snake.speed
+		self.score.set(str(new_score))
+		
+	def change_course(self, course):
+		if (not self.snake) or self.pause_status or (not self.run):
+			return None
+		self.snake.change_course(course)
+		
+	def pause(self):
+		'''Приостановка змейки'''
+		self.pause_status = not self.pause_status
+
+	def stop(self):
+		'''Остановка игры'''
+		print('Stopped!')
+		self.run = False
+		self.canv.after_cancel(self.after_id)
+		
+	def reset(self):
+		if self.snake:
+			self.stop()
+			self.snake.delete()
+			self.food.delete()	
+		
+	def create_food(self):
+		'''Генерация еды в случайном месте'''
+		#Удалить старую еду
+		if self.food:self.food.delete()
+		while True:
+			#Ширина и высота кратные размеру
+			width = int(self.canv_width/self.snake.size)
+			height = int(self.canv_height/self.snake.size)
+			#Если змейка занимает все доступное поле
+			if self.snake.length == (width * height):
+				self.game_over_var.set(True)
+				return None
+			#Генерируется случайны координаты в пределах окна
+			random_x = random.choice(range(width))
+			random_y = random.choice(range(height))
+			random_x *= self.snake.size
+			random_y *= self.snake.size
+			#Проверка занято ли это место змейкой
+			engage = False
+			for part in self.snake.body:
+				if (random_x, random_y) == (part.x, part.y):
+					engage = True
+					break
+			if not engage:break
+		self.food = Snake_food(self.canv, random_x, random_y, self.snake.size)
+		
+		
 class Main_window(Frame):
 	'''Main class for my game'''
 	def __init__(self, parent, canv_width=800, canv_height=600, **options):
@@ -17,38 +122,37 @@ class Main_window(Frame):
 		self.top_bar.pack(side=TOP, padx=1, pady=1, fill=X)
 		Button(self.top_bar, text='New game',
 					command=self.new_game_window).pack(side=LEFT, padx=2)
-		Button(self.top_bar, text='Pause',
-					command=self.pause).pack(side=LEFT, padx=2)
+		pause_btn = Button(self.top_bar, text='Pause')
+		pause_btn.pack(side=LEFT, padx=2)
 		Button(self.top_bar, text='Scores',
 					command=self.scores_window).pack(side=LEFT, padx=2)
-		self.score_lbl = Label(self.top_bar, text='Score: 0', font=('bold'))
+		self.score_lbl = Label(self.top_bar, font=('bold'))
 		self.score_lbl.pack(side=RIGHT)
+		Label(self.top_bar, text='Score: ', font=('bold')).pack(side=RIGHT)
 		self.canv_width = canv_width
 		self.canv_height = canv_height
 		self.canv = Canvas(width=canv_width, height=canv_height, bg='white')
 		self.canv.pack(side=TOP)
+		self.game = Snake_controller(self.canv, self.canv_width, canv_height)
+		self.score_lbl.config(textvariable=self.game.score)
+		pause_btn.config(command=self.game.pause)
+		self.in_ready = False #Переменная выполения метода self.ready
 		#Установка клавиш управления
-		root.bind('<Up>',lambda event:self.on_change_course('up'))
-		root.bind('<Down>',lambda event:self.on_change_course('down'))
-		root.bind('<Left>',lambda event:self.on_change_course('left'))
-		root.bind('<Right>',lambda event:self.on_change_course('right'))
+		root.bind('<Up>',lambda event:self.game.change_course('up'))
+		root.bind('<Down>',lambda event:self.game.change_course('down'))
+		root.bind('<Left>',lambda event:self.game.change_course('left'))
+		root.bind('<Right>',lambda event:self.game.change_course('right'))
 		root.bind('<KeyPress>',self.on_key_press)
 		#Вывод справочной информации по управлению
 		self.control_info()
-		#Переменные поумолчанию
-		self.current_score = 0
-		self.run = False #Статус игры
-		self.snake = False #Змейка отсутствует на экране
-		self.food = False #Еда тоже отсутствует на экране
-		self.in_ready = False #Переменная выполения метода self.ready
-		self.pause_status = False
 		self.load_scores() #Загрузка статистики в self.scores
+		
 	
 	def new_game_window(self):
 		'''Окно для стартовых настроек'''
 		def start():
 			start_win.destroy()
-			self.start(speed.get())
+			self.game_run(speed.get())
 		self.canv.config(bg='white')
 		#Предотвращение повторного запуска
 		#Во время выполнения self.ready
@@ -56,16 +160,12 @@ class Main_window(Frame):
 		#Убрать стартовую информацию в начале игры
 		if self.start_control_info:
 			self.canv.delete(self.start_control_info)
-		#Проверка есть ли змейка на поле
-		if self.snake:
-			self.stop()
-			self.snake.delete_snake()
-			self.food.delete_part()	
-		self.change_score(set_value=0)
+		self.game.reset()
+		self.game.score.set(0)
 		start_win = Toplevel()
 		start_win.title('Start settings')
 		#Ассоциированая переменная для выбора скорости
-		speed = IntVar()
+		speed = IntVar(value=10)
 		frm = Frame(start_win)
 		frm.pack(side=TOP, expand=YES, fill=BOTH)
 		start_win_lbl = Label(frm, text="Выберите стартовые настройки")
@@ -90,6 +190,8 @@ class Main_window(Frame):
 		
 	def scores_window(self):
 		'''Окно статистики'''
+		if not self.game.pause_status:
+			self.game.pause()
 		scores_win = Toplevel()
 		scores_win.title('Scores')
 		frm = Frame(scores_win)
@@ -125,61 +227,25 @@ class Main_window(Frame):
 																										fill='#778899',
 																										font=('normal', '20'))
 	
-	def change_score(self, set_value=None):
-		'''Изменяет счет и отрисовывает'''
-		if set_value or set_value == 0:
-			self.current_score = set_value
-		else:
-			self.current_score += self.snake.speed
-		text = self.score_lbl.cget('text')
-		text = text.split(' ')[0] + ' ' + str(self.current_score)
-		print(text)
-		self.score_lbl.config(text=text)
-
-	def on_change_course(self, course):
-		'''Изменение движения змейки'''
-		if not self.snake or self.pause_status or not self.run:
-			return None
-		else:
-			course = course.lower()
-			if course == 'up':		
-				self.snake.change_course('up')
-			elif course == 'down':
-				self.snake.change_course('down')
-			elif course == 'left':
-				self.snake.change_course('left')
-			elif course == 'right':
-				self.snake.change_course('right')
-
-	def on_key_press(self,event):
+	def on_key_press(self, event):
 		'''Обработка прочих нажатий на клавиатуру'''
 		key = event.char
 		#Для русской и английской раскладки
 		if key == 'p' or 'з':
-			self.pause()
+			self.game.pause()
 
-	def start(self, speed):
-		'''Старт игры сначала'''
-		self.snake = Snake(self.canv, self.canv_width,
-											self.canv_height, size=20,
-											speed=speed, length=10, course='right')
-		self.ready()
-		self.create_food()
-		self.canv.focus_set()
-		self.run = True
-		self.pause_status = False
-		self.game_over_var = False
-		self.play()
-
-	def ready(self):
+	def ready(self, wait_time=2):
 		'''Даёт время на подготовку'''
+		tmp_snake = Snake(self.canv, self.canv_width, self.canv_height, 
+								size=self.game.size, speed=1, length=self.game.start_length, 
+								course=self.game.start_course)
 		#Флаг выполнения функции
 		self.in_ready = True
 		x = self.canv_width/2
 		y = self.canv_height/2
 		text = self.canv.create_text(x, y, text="Ready?",
 																fill='black', font=('bold', '40'))
-		for i in range(1, 20):
+		for i in range(1, wait_time*10):
 			time.sleep(0.1)
 			self.update()
 		self.canv.delete(text)
@@ -189,47 +255,17 @@ class Main_window(Frame):
 			time.sleep(0.1)
 			self.update()
 		self.canv.delete(text)
+		tmp_snake.delete()
 		self.in_ready = False
-		
-	def play(self):
-		'''Рекурсивная функция выполнения игры'''
-		if not self.pause_status:
-			self.snake.move()
-			head = self.snake.body[0]
-			#Проверка сьела ли змейку еду
-			if (head.x, head.y) == (self.food.x, self.food.y):
-				self.snake.add_part()
-				self.change_score()
-				self.create_food()
-				#В случае когда змейка занимает все поле
-				if self.game_over_var:
-					self.game_over()
-					return None
-			#Проверка не сьела ли змейка саму себя
-			self.game_over_var = False
-			for part in self.snake.body[1:]:
-				#Змейка не может себя сьесть при длинне до 4 включительно
-				if ((head.x, head.y) == (part.x, part.y)) and (self.snake.length > 4):
-					self.game_over_var = True
-					self.game_over()
-					return None
-		if not self.food:
-			self.create_food()
-		after_time = int(1000/self.snake.speed)
-		self.after_id = self.after(after_time, self.play)
 
-	def pause(self):
-		'''Приостановка змейки'''
-		self.pause_status = not self.pause_status
+	def game_run(self, speed):
+		self.ready()
+		self.game.start(speed)
+		self.wait_variable(self.game.game_over_var)
+		self.game.stop()
+		self.game_over_window()
 
-	def stop(self):
-		'''Остановка игры'''
-		print('Stopped!')
-		self.run = False
-		self.after_cancel(self.after_id)
-
-	def game_over(self, game_over_color='#FA8072'):
-		self.stop()
+	def game_over_window(self, game_over_color='#FA8072'):
 		self.canv.config(bg=game_over_color)
 		game_over_win = Toplevel()
 		game_over_win.title('Game over')
@@ -237,10 +273,11 @@ class Main_window(Frame):
 		frm.pack(side=TOP, expand=YES, fill=BOTH)
 		#Проверяем вошли мы в топ или нет
 		congratulate = False
-		for (name, score) in self.scores:
-			if self.current_score > score:
+		game_score = int(self.game.score.get())
+		for (name, top_score) in self.scores:
+			if game_score > top_score:
 				congratulate = True
-				position = self.scores.index((name, score))
+				position = self.scores.index((name, top_score))
 				break
 		if congratulate:
 			game_over_lbl = Label(frm, text="CONGRATULATE!")
@@ -254,7 +291,7 @@ class Main_window(Frame):
 			game_over_lbl = Label(frm, text="GAME OVER")
 			game_over_lbl.config(font=('times', 20, 'bold'))
 			game_over_lbl.pack(side=TOP, padx=3, expand=YES, fill=BOTH)
-		score_lbl_txt = 'Your score: ' + str(self.current_score)
+		score_lbl_txt = 'Your score: ' + str(game_score)
 		score_lbl = Label(game_over_win,text = score_lbl_txt)
 		score_lbl.config(font=('times', 13, 'bold'))
 		score_lbl.pack(side=TOP, expand=YES, fill=BOTH)
@@ -270,39 +307,13 @@ class Main_window(Frame):
 		ok_btn = Button(game_over_win, text='Ok', command=game_over_win.destroy)
 		ok_btn.pack(side=TOP, fill=BOTH)
 		self.wait_for_window(game_over_win)
-		#Обновляем переменную статистики
-		name = entr_var.get()
-		self.scores.insert(position, (name, self.current_score))
-		self.scores = self.scores[:-1]
-		self.dump_scores()
+		if congratulate:
+			#Обновляем переменную статистики
+			name = entr_var.get()
+			self.scores.insert(position, (name, game_score))
+			self.scores = self.scores[:-1]
+			self.dump_scores()
 
-	
-	def create_food(self):
-		'''Генерация еды в случайном месте'''
-		#Удалить старую еду
-		if self.food:self.food.delete_part()
-		while True:
-			#Ширина и высота кратные размеру
-			width = int(self.canv_width/self.snake.size)
-			height = int(self.canv_height/self.snake.size)
-			#Если змейка занимает все доступное поле
-			if self.snake.length == (width * height):
-				self.game_over_var = True
-				return None
-			#Генерируется случайны координаты в пределах окна
-			random_x = random.choice(range(width))
-			random_y = random.choice(range(height))
-			random_x *= self.snake.size
-			random_y *= self.snake.size
-			#Проверка занято ли это место змейкой
-			engage = False
-			for part in self.snake.body:
-				if (random_x, random_y) == (part.x, part.y):
-					engage = True
-					break
-			if not engage:break
-		self.food = Snake_food(self.canv, random_x, random_y, self.snake.size)
-		
 	def load_scores(self):
 		'''Загрузка статистики из файла'''
 		try:
@@ -322,7 +333,5 @@ class Main_window(Frame):
 		with open('scores.pkl', 'wb') as file_scores:
 			pickle.dump(self.scores, file_scores)
 		
-
 if __name__ == '__main__':
 	Main_window(root).mainloop()
-	
