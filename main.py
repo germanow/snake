@@ -20,7 +20,7 @@ class Snake_controller():
 		self.start_course = start_course
 		self.score = StringVar(value='0')
 		self.run = False #Статус игры
-		self.snake = False #Змейка отсутствует на экране
+		self.snake = False #Змейка отсутствует на экране.
 		self.food = False #Еда тоже отсутствует на экране
 		self.pause_status = False
 		self.game_over_var = BooleanVar(value=False)
