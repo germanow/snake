@@ -10,6 +10,7 @@ root.title('Snake')
 
 
 class Snake_controller():
+  '''Класс для игровой логики'''
   def __init__(self, canvas, canv_width, canv_height, 
               size=20, start_length=2, start_course='right'):
     self.canv = canvas
