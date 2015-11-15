@@ -2,7 +2,7 @@ from tkinter import *
 import time
 import random
 import pickle
-from core_classes import Snake,Snake_food
+from core_classes import Snake,Snake_part,Snake_food
 
 
 root = Tk()
@@ -56,6 +56,9 @@ class Snake_controller():
       for part in self.snake.body[1:]:
         #Змейка не может себя сьесть при длинне до 4 включительно
         if ((head.x, head.y) == (part.x, part.y)) and (self.snake.length > 4):
+          #Вывести голову на передний план
+          new_head = Snake_part(self.canv, head.x, head.y, 
+                                self.size, head=True)
           self.game_over_var.set(True)
           return None
     if not self.food:
@@ -159,8 +162,9 @@ class Main_window(Frame):
     #Во время выполнения self.ready
     if self.in_ready:return None
     #Убрать стартовую информацию в начале игры
-    if self.start_control_info:
-      self.canv.delete(self.start_control_info)
+    #if self.start_control_info:
+     # self.canv.delete(self.start_control_info)
+    self.canv.delete('all')
     self.game.reset()
     self.game.score.set(0)
     start_win = Toplevel()
@@ -238,8 +242,9 @@ class Main_window(Frame):
   def ready(self, wait_time=2):
     '''Даёт время на подготовку'''
     tmp_snake = Snake(self.canv, self.canv_width, self.canv_height, 
-                size=self.game.size, speed=1, length=self.game.start_length, 
-                course=self.game.start_course)
+                      size=self.game.size, speed=1, 
+                      length=self.game.start_length,
+                      course=self.game.start_course)
     #Флаг выполнения функции
     self.in_ready = True
     x = self.canv_width/2
