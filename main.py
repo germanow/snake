@@ -2,7 +2,7 @@ from tkinter import *
 import time
 import random
 import pickle
-from core_classes import Snake,Snake_part,Snake_food
+from core_classes import *
 
 
 root = Tk()
@@ -21,16 +21,29 @@ class Snake_controller():
     self.start_course = start_course
     self.score = StringVar(value='0')
     self.run = False #Статус игры
-    self.snake = False #Змейка отсутствует на экране.
+    self.snake1 = False #Змейка1 отсутствует на экране
+    self.snake2 = False 
     self.food = False #Еда тоже отсутствует на экране
     self.pause_status = False
     self.game_over_var = BooleanVar(value=False)
   
-  def start(self, speed):
+  def start(self, speed, mod=None):
     '''Старт игры сначала'''
-    self.snake = Snake(self.canv, self.canv_width, self.canv_height, 
-                      size=self.size, speed=speed, length=self.start_length, 
-                      course=self.start_course)
+    snake1_head_y = self.canv_width/2-4*self.size
+    snake2_head_y = self.canv_width/2+4*self.size
+    self.snake1 = Snake(self.canv, self.canv_width, self.canv_height,
+                        head_x=None, head_y=snake1_head_y, size=self.size, 
+                        speed=speed, length=self.start_length, 
+                        course=self.start_course)
+    if mod == 'bot':
+      self.snake2 = Snake_bot(self.snake1, self.canv, self.canv_width, 
+                              self.canv_height, head_x=None, 
+                              head_y=snake2_head_y, size=self.size, 
+                              speed=speed, length=self.start_length, 
+                              course=self.start_course)
+    else:
+      self.snake2 = None
+    self.mod = mod
     self.score.set(0)
     self.run = True
     self.pause_status = False
@@ -41,39 +54,38 @@ class Snake_controller():
   def play(self):
     '''Рекурсивная функция выполнения игры'''
     if not self.pause_status:
-      self.snake.move()
-      head = self.snake.body[0]
-      #Проверка сьела ли змейку еду
-      if (head.x, head.y) == (self.food.x, self.food.y):
-        self.snake.add_part()
-        self.add_score()
-        self.create_food()
-        #В случае когда змейка занимает все поле
-        if self.game_over_var.get():
-          return None
-      #Проверка не сьела ли змейка саму себя
-      #self.game_over_var.set(False)
-      for part in self.snake.body[1:]:
-        #Змейка не может себя сьесть при длинне до 4 включительно
-        if ((head.x, head.y) == (part.x, part.y)) and (self.snake.length > 4):
-          #Вывести голову на передний план
-          new_head = Snake_part(self.canv, head.x, head.y, 
-                                self.size, head=True)
-          self.game_over_var.set(True)
-          return None
+      self.snake1.move()
+      self.eat_food(self.snake1)
+      if self.mod == 'bot':
+        self.snake2.change_course(self.food.x, self.food.y)
+        self.snake2.move()
+        self.eat_food(self.snake2)
+        self.eat_snake(self.snake1, self.snake2)
+        self.eat_snake(self.snake2, self.snake1)
+      else:
+        self.eat_snake(self.snake1)
+      if self.game_over_var.get():
+        return None
     if not self.food:
       self.create_food()
-    after_time = int(1000/self.snake.speed)
+    after_time = int(1000/self.snake1.speed)
+    #Уменьшить скорость при игре с боотом
+    if self.mod == 'bot' and self.snake1.speed != 5:
+      after_time = int(after_time*1.5)
     self.after_id = self.canv.after(after_time, self.play)
 
   def add_score(self):
-    new_score = int(self.score.get()) + self.snake.speed
+    if self.mod == 'one':
+      add = self.snake1.speed
+    elif self.mod == 'bot':
+      add = self.snake1.speed*10
+    new_score = int(self.score.get()) + add
     self.score.set(str(new_score))
     
   def change_course(self, course):
-    if (not self.snake) or self.pause_status or (not self.run):
+    if (not self.snake1) or self.pause_status or (not self.run):
       return None
-    self.snake.change_course(course)
+    self.snake1.change_course(course)
     
   def pause(self):
     '''Приостановка змейки'''
@@ -81,15 +93,54 @@ class Snake_controller():
 
   def stop(self):
     '''Остановка игры'''
-    print('Stopped!')
     self.run = False
     self.canv.after_cancel(self.after_id)
     
   def reset(self):
-    if self.snake:
+    if self.snake1:
       self.stop()
-      self.snake.delete()
-      self.food.delete()  
+      self.snake1.delete()
+      self.food.delete()
+    if self.snake2:
+      self.stop()
+      self.snake2.delete()
+      self.food.delete()
+      
+  def eat_food(self, snake):
+    '''Проверка была ли сьедена еда'''
+    head = snake.body[0]
+    #Проверка сьела ли змейкa еду
+    if (head.x, head.y) == (self.food.x, self.food.y):
+      snake.add_part()
+      #Прибалять очки только для игрока
+      if type(snake) == Snake:
+        self.add_score()
+      self.create_food()
+  
+  def eat_snake(self, snake1, snake2=None):
+    '''Проверка не сьела ли змейка саму себя или другого игрока'''
+    if not snake2:
+      bodies = snake1.body[1:]
+    else:
+      bodies = snake1.body[1:] + snake2.body
+    head = snake1.body[0]
+    for part in bodies:
+      if ((head.x, head.y) == (part.x, part.y)):
+        #Вывести голову на передний план
+        new_head = Snake_part(self.canv, head.x, head.y, 
+                              self.size, head=True, 
+                              head_color=snake1.head_color, 
+                              part_color=snake1.part_color)
+        if type(snake1) == Snake:
+          self.game_over_var.set(True)
+        else:
+          new_head.delete()
+          self.snake2.delete()
+          self.snake2 = Snake_bot(self.snake1, self.canv, self.canv_width, 
+                                    self.canv_height, size=self.size, 
+                                    speed=snake1.speed, 
+                                    length=self.start_length, 
+                                    course=self.start_course)
     
   def create_food(self):
     '''Генерация еды в случайном месте'''
@@ -97,25 +148,29 @@ class Snake_controller():
     if self.food:self.food.delete()
     while True:
       #Ширина и высота кратные размеру
-      width = int(self.canv_width/self.snake.size)
-      height = int(self.canv_height/self.snake.size)
+      width = int(self.canv_width/self.size)
+      height = int(self.canv_height/self.size)
       #Если змейка занимает все доступное поле
-      if self.snake.length == (width * height):
+      if self.snake1.length == (width * height):
         self.game_over_var.set(True)
         return None
       #Генерируется случайны координаты в пределах окна
       random_x = random.choice(range(width))
       random_y = random.choice(range(height))
-      random_x *= self.snake.size
-      random_y *= self.snake.size
+      random_x *= self.size
+      random_y *= self.size
       #Проверка занято ли это место змейкой
       engage = False
-      for part in self.snake.body:
+      if self.mod == 'bot':
+        bodies = self.snake1.body + self.snake2.body
+      else:
+        bodies = self.snake1.body
+      for part in bodies:
         if (random_x, random_y) == (part.x, part.y):
           engage = True
           break
       if not engage:break
-    self.food = Snake_food(self.canv, random_x, random_y, self.snake.size)
+    self.food = Snake_food(self.canv, random_x, random_y, self.size)
     
     
 class Main_window(Frame):
@@ -147,23 +202,22 @@ class Main_window(Frame):
     root.bind('<Left>',lambda event:self.game.change_course('left'))
     root.bind('<Right>',lambda event:self.game.change_course('right'))
     root.bind('<KeyPress>',self.on_key_press)
+    root.protocol("WM_DELETE_WINDOW", self.my_quit)
+    self.my_quit_var = False #Для предотвращения зависания
     #Вывод справочной информации по управлению
     self.control_info()
     self.load_scores() #Загрузка статистики в self.scores
-    
-  
+
   def new_game_window(self):
     '''Окно для стартовых настроек'''
     def start():
       start_win.destroy()
-      self.game_run(speed.get())
+      self.game_run(speed.get(), mod.get())
     self.canv.config(bg='white')
     #Предотвращение повторного запуска
     #Во время выполнения self.ready
     if self.in_ready:return None
     #Убрать стартовую информацию в начале игры
-    #if self.start_control_info:
-     # self.canv.delete(self.start_control_info)
     self.canv.delete('all')
     self.game.reset()
     self.game.score.set(0)
@@ -171,11 +225,21 @@ class Main_window(Frame):
     start_win.title('Start settings')
     #Ассоциированая переменная для выбора скорости
     speed = IntVar(value=10)
+    mod = StringVar(value='one')
     frm = Frame(start_win)
     frm.pack(side=TOP, expand=YES, fill=BOTH)
     start_win_lbl = Label(frm, text="Выберите стартовые настройки")
     start_win_lbl.config(font=('times', 15, 'bold'))
     start_win_lbl.pack(side=TOP, expand=YES, fill=BOTH)
+    mod_lbl = Label(frm, text='Мод')
+    mod_lbl.config(font=('times', 12))
+    mod_lbl.pack(side=TOP, expand=YES, fill=BOTH)
+    mod_radio_bar = Frame(frm)
+    mod_radio_bar.pack(side=TOP, expand=YES, fill=X)
+    Radiobutton(mod_radio_bar, text='One player',
+                variable=mod, value='one').pack(side=LEFT)
+    Radiobutton(mod_radio_bar, text='With Bot',
+                variable=mod, value='bot').pack(side=LEFT)
     speed_lbl = Label(frm, text='Сложность')
     speed_lbl.config(font=('times', 12))
     speed_lbl.pack(side=TOP, expand=YES, fill=BOTH)
@@ -239,12 +303,23 @@ class Main_window(Frame):
     if key == 'p' or 'з':
       self.game.pause()
 
-  def ready(self, wait_time=2):
+  def ready(self, wait_time=2, mod = None):
     '''Даёт время на подготовку'''
+    if mod == 'bot':
+      snake1_head_y = self.canv_width/2-4*self.game.size
+      snake2_head_y = self.canv_width/2+4*self.game.size
+    else:
+      snake1_head_y = None
     tmp_snake = Snake(self.canv, self.canv_width, self.canv_height, 
-                      size=self.game.size, speed=1, 
-                      length=self.game.start_length,
+                      head_x=None, head_y=snake1_head_y, size=self.game.size, 
+                      speed=1, length=self.game.start_length,
                       course=self.game.start_course)
+    if mod == 'bot':
+      tmp_snake_bot = Snake_bot(tmp_snake, self.canv, self.canv_width, 
+                                self.canv_height, head_x=None, 
+                                head_y=snake2_head_y, size=self.game.size, 
+                                speed=1, length=self.game.start_length,
+                                course=self.game.start_course)
     #Флаг выполнения функции
     self.in_ready = True
     x = self.canv_width/2
@@ -252,22 +327,28 @@ class Main_window(Frame):
     text = self.canv.create_text(x, y, text="Ready?",
                                 fill='black', font=('bold', '40'))
     for i in range(1, wait_time*10):
+      if self.my_quit_var:return None
       time.sleep(0.1)
       self.update()
     self.canv.delete(text)
     text = self.canv.create_text(x, y, text="Go!",
                                 fill='black', font=('bold', '45'))
     for i in range(1, 7):
+      if self.my_quit_var:return None
       time.sleep(0.1)
       self.update()
     self.canv.delete(text)
     tmp_snake.delete()
+    if mod == 'bot':
+      tmp_snake_bot.delete()
     self.in_ready = False
 
-  def game_run(self, speed):
-    self.ready()
-    self.game.start(speed)
+  def game_run(self, speed, mod):
+    self.ready(mod=mod)
+    if self.my_quit_var:return None
+    self.game.start(speed, mod=mod)
     self.wait_variable(self.game.game_over_var)
+    if self.my_quit_var:return None
     self.game.stop()
     self.game_over_window()
 
@@ -338,6 +419,13 @@ class Main_window(Frame):
     '''Сохранения счета в файл'''
     with open('scores.pkl', 'wb') as file_scores:
       pickle.dump(self.scores, file_scores)
+      
+  def my_quit(self):
+    '''Корректное завершение программы'''
+    self.my_quit_var = True
+    self.game.game_over_var.set(True)
+    self.quit()
+    
     
 if __name__ == '__main__':
   Main_window(root).mainloop()
