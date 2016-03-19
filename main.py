@@ -4,11 +4,6 @@ import random
 import pickle
 from core_classes import *
 
-
-root = Tk()
-root.title('Snake')
-
-
 class Snake_controller():
   '''Класс для игровой логики'''
   def __init__(self, canvas, canv_width, canv_height, 
@@ -171,8 +166,7 @@ class Snake_controller():
           break
       if not engage:break
     self.food = Snake_food(self.canv, random_x, random_y, self.size)
-    
-    
+
 class Main_window(Frame):
   '''Main class for my game'''
   def __init__(self, parent, canv_width=800, canv_height=600, **options):
@@ -197,12 +191,12 @@ class Main_window(Frame):
     pause_btn.config(command=self.game.pause)
     self.in_ready = False #Переменная выполения метода self.ready
     #Установка клавиш управления
-    root.bind('<Up>',lambda event:self.game.change_course('up'))
-    root.bind('<Down>',lambda event:self.game.change_course('down'))
-    root.bind('<Left>',lambda event:self.game.change_course('left'))
-    root.bind('<Right>',lambda event:self.game.change_course('right'))
-    root.bind('<KeyPress>',self.on_key_press)
-    root.protocol("WM_DELETE_WINDOW", self.my_quit)
+    parent.bind('<Up>',lambda event:self.game.change_course('up'))
+    parent.bind('<Down>',lambda event:self.game.change_course('down'))
+    parent.bind('<Left>',lambda event:self.game.change_course('left'))
+    parent.bind('<Right>',lambda event:self.game.change_course('right'))
+    parent.bind('<KeyPress>',self.on_key_press)
+    parent.protocol("WM_DELETE_WINDOW", self.my_quit)
     self.my_quit_var = False #Для предотвращения зависания
     #Вывод справочной информации по управлению
     self.control_info()
@@ -426,6 +420,10 @@ class Main_window(Frame):
     self.game.game_over_var.set(True)
     self.quit()
     
-    
-if __name__ == '__main__':
+def main():
+  root = Tk()
+  root.title('Snake')
   Main_window(root).mainloop()
+
+if __name__ == '__main__':
+ main()
